@@ -9,8 +9,8 @@ export default function Footer() {
                         <a href="#contact" className="hover:text-gray-900 transition-colors">Contact</a>
                         <a href="#blog" className="hover:text-gray-900 transition-colors">Blog</a>
                     </div>
-                    <div>
-                        © {new Date().getFullYear()} KindBite. Designed in California.
+                    <div className="text-gray-400">
+                        © {new Date().getFullYear()} KindBite. Designed in <span className="text-gray-600 font-semibold">Bangladesh</span>.
                     </div>
                 </div>
             </div>

@@ -1,3 +1,6 @@
+/* Import Google Fonts - Inter (400 Regular, 600 Semibold, 700 Bold) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
 /* Import Leaflet CSS */
 @import 'leaflet/dist/leaflet.css';
 
@@ -6,25 +9,66 @@
 @tailwind utilities;
 
 @layer base {
+  * {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply bg-white text-gray-900 antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-weight: 400; /* Regular for ALL body text */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Headings ALWAYS use bold (700) */
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight;
+    font-weight: 700; /* Bold for ALL headings */
+  }
+
+  h1 {
+    @apply text-5xl md:text-6xl;
+  }
+
+  h2 {
+    @apply text-4xl md:text-5xl;
+  }
+
+  h3 {
+    @apply text-2xl md:text-3xl;
+  }
+
+  h4 {
+    @apply text-xl md:text-2xl;
+  }
+
+  /* Body text ALWAYS uses regular (400) */
+  p, span, div, li, a {
+    font-weight: 400;
+  }
+
+  /* Only use semibold (600) for buttons and labels */
+  button {
+    font-weight: 600;
   }
 }
 
 @layer components {
-
   /* Glassmorphism card */
   .glass-card {
-    @apply bg-white/80 backdrop-blur-lg rounded-2xl shadow-xl border border-white/20;
+    @apply bg-white/80 backdrop-blur-lg rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300;
   }
 
   /* Gradient button */
   .btn-primary {
-    @apply bg-gradient-to-r from-primary-500 to-primary-600 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:from-primary-600 hover:to-primary-700 transition-all duration-300 transform hover:scale-105;
+    @apply bg-gradient-to-r from-primary-500 to-primary-600 text-white px-6 py-3 rounded-full shadow-md hover:shadow-lg hover:from-primary-600 hover:to-primary-700 transition-all duration-200 transform hover:scale-[1.02];
+    font-weight: 600; /* Semibold for buttons */
   }
 
   .btn-secondary {
-    @apply bg-white text-primary-600 font-semibold px-6 py-3 rounded-xl border-2 border-primary-500 hover:bg-primary-50 transition-all duration-300;
+    @apply bg-white text-primary-600 px-6 py-3 rounded-full border-2 border-primary-500 hover:bg-primary-50 transition-all duration-200;
+    font-weight: 600; /* Semibold for buttons */
   }
 
   /* Map container */
@@ -37,22 +81,30 @@
     @apply fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 text-white rounded-full shadow-2xl flex items-center justify-center text-2xl hover:scale-110 transition-transform duration-300 z-50;
   }
 
-  /* Pulsing dot for user location */
-  .pulse-dot {
-    @apply w-4 h-4 bg-blue-500 rounded-full animate-pulse-slow;
-  }
-
   /* Card hover effect */
   .hover-card {
-    @apply transition-all duration-300 hover:shadow-2xl hover:-translate-y-2;
+    @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-1;
   }
 }
 
 @layer utilities {
-
-  /* Text gradient */
+  /* Text gradient - ALWAYS bold */
   .text-gradient {
     @apply bg-gradient-to-r from-primary-500 to-primary-700 bg-clip-text text-transparent;
+    font-weight: 700; /* Bold for gradient text */
+  }
+
+  /* Font weight utilities */
+  .font-regular {
+    font-weight: 400;
+  }
+
+  .font-semibold {
+    font-weight: 600;
+  }
+
+  .font-bold {
+    font-weight: 700;
   }
 
   /* Animated gradient background */
@@ -66,14 +118,26 @@
     0% {
       background-position: 0% 50%;
     }
-
     50% {
       background-position: 100% 50%;
     }
-
     100% {
       background-position: 0% 50%;
     }
+  }
+
+  /* Floating animation */
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
   }
 }
 

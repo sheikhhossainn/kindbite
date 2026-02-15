@@ -1,93 +1,94 @@
+import {
+    GlobeAltIcon,
+    BoltIcon,
+    HeartIcon,
+    ShieldCheckIcon,
+    ArrowTrendingDownIcon,
+    UserGroupIcon
+} from '@heroicons/react/24/outline';
+
 export default function Impact() {
     const stats = [
         {
             number: '2,847',
             label: 'Meals Delivered',
             description: 'Hot meals delivered to people in need across 12 cities',
-            icon: '🍽️',
-            color: 'from-orange-400 to-orange-600'
+            Icon: UserGroupIcon,
         },
         {
             number: '563',
             label: 'Active Donors',
             description: 'Compassionate people ready to help at a moment\'s notice',
-            icon: '❤️',
-            color: 'from-red-400 to-red-600'
+            Icon: HeartIcon,
         },
         {
             number: '12',
             label: 'Cities',
             description: 'Growing network from Dhaka to Delhi, Manila to Jakarta',
-            icon: '🌍',
-            color: 'from-green-400 to-green-600'
+            Icon: GlobeAltIcon,
         },
         {
             number: '8 min',
             label: 'Avg Response',
             description: 'Average time from pin drop to donor acceptance',
-            icon: '⚡',
-            color: 'from-yellow-400 to-yellow-600'
+            Icon: BoltIcon,
         },
         {
             number: '47%',
             label: 'Food Waste Cut',
             description: 'Reduction in surplus food going to waste among donors',
-            icon: '♻️',
-            color: 'from-emerald-400 to-emerald-600'
+            Icon: ArrowTrendingDownIcon,
         },
         {
             number: '100%',
             label: 'Privacy Protected',
             description: 'Zero faces captured—AI verifies food only, always',
-            icon: '🔒',
-            color: 'from-blue-400 to-blue-600'
+            Icon: ShieldCheckIcon,
         }
     ];
 
     return (
-        <section id="impact" className="py-20 bg-gray-900 text-white">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section id="impact" className="py-20 bg-white border-t border-gray-100">
+            <div className="max-w-7xl mx-auto px-6">
                 <div className="text-center mb-16">
-                    <h2 className="text-4xl md:text-5xl font-bold mb-4">
-                        Real <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">Impact</span>
+                    <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                        Real Impact
                     </h2>
-                    <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+                    <p className="text-lg text-gray-600 font-normal max-w-2xl mx-auto">
                         Every action on KindBite creates measurable change. Here's the proof that kindness scales.
                     </p>
                 </div>
 
                 {/* Stats grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-                    {stats.map((stat, index) => (
-                        <div key={index} className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 hover:bg-white/15 transition-all duration-300 hover:-translate-y-1">
-                            <div className="flex items-start gap-4 mb-4">
-                                <div className={`w-14 h-14 bg-gradient-to-br ${stat.color} rounded-xl flex items-center justify-center text-2xl shadow-lg`}>
-                                    {stat.icon}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12 mb-20">
+                    {stats.map((stat, index) => {
+                        const { Icon } = stat;
+                        return (
+                            <div key={index} className="flex flex-col items-center text-center">
+                                <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center mb-4 icon-box text-orange-500">
+                                    <Icon className="w-6 h-6" strokeWidth={2} />
                                 </div>
-                                <div className="flex-1">
-                                    <div className="text-4xl font-bold mb-1">{stat.number}</div>
-                                    <div className="text-lg font-semibold text-orange-400">{stat.label}</div>
-                                </div>
+                                <div className="text-4xl font-bold text-gray-900 mb-2">{stat.number}</div>
+                                <div className="text-base font-semibold text-gray-900 mb-2">{stat.label}</div>
+                                <p className="text-sm text-gray-600 font-normal leading-relaxed max-w-xs">{stat.description}</p>
                             </div>
-                            <p className="text-sm text-gray-300 leading-relaxed">{stat.description}</p>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
-                {/* Impact story */}
-                <div className="max-w-4xl mx-auto bg-gradient-to-br from-orange-500/20 to-orange-600/20 backdrop-blur-lg border border-orange-400/30 rounded-3xl p-10">
-                    <h3 className="text-2xl font-bold mb-6 text-center">Why It Matters</h3>
-                    <div className="space-y-4 text-gray-200 leading-relaxed">
+                {/* Impact story - Simplified */}
+                <div className="max-w-3xl mx-auto text-center bg-gray-50 rounded-3xl p-10">
+                    <h3 className="text-2xl font-bold text-gray-900 mb-6">Why It Matters</h3>
+                    <div className="space-y-4 text-gray-600 font-normal leading-relaxed">
                         <p>
-                            <strong className="text-white">The problem is urgent:</strong> Globally, 1/3 of all food produced is wasted
+                            <span className="font-semibold text-gray-900">The problem is urgent:</span> Globally, 1/3 of all food produced is wasted
                             while 800 million people face hunger. In dense cities, these two realities exist blocks apart—yet rarely connect.
                         </p>
                         <p>
-                            <strong className="text-white">KindBite changes this.</strong> By making food rescue instant, hyper-local,
-                            and privacy-first, we've removed every barrier between surplus and need. No apps to download for recipients.
-                            No paperwork. No shame. Just human kindness, tech-enabled.
+                            <span className="font-semibold text-gray-900">KindBite changes this.</span> By making food rescue instant, hyper-local,
+                            and privacy-first, we've removed every barrier between surplus and need.
                         </p>
-                        <p className="text-xl font-semibold text-orange-300 text-center pt-4">
+                        <p className="text-lg font-semibold text-orange-600 pt-4">
                             Together, we've proven that ending hunger isn't about producing more food—it's about sharing what we already have.
                         </p>
                     </div>
@@ -95,15 +96,15 @@ export default function Impact() {
 
                 {/* Call to action */}
                 <div className="mt-16 text-center">
-                    <p className="text-2xl mb-6 text-gray-200">
-                        Join <span className="text-orange-400 font-bold">563 donors</span> making a difference today
-                    </p>
                     <button
                         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                        className="bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold px-10 py-4 rounded-full shadow-xl hover:shadow-2xl hover:from-orange-600 hover:to-orange-700 transition-all duration-300 transform hover:scale-105 text-lg"
+                        className="bg-gray-900 hover:bg-black text-white font-semibold px-8 py-3 rounded-full transition-all duration-300 shadow-lg hover:-translate-y-0.5"
                     >
                         Start Helping Now
                     </button>
+                    <p className="mt-4 text-sm text-gray-500 font-normal">
+                        Join 2,000+ neighbors sharing food today
+                    </p>
                 </div>
             </div>
         </section>
