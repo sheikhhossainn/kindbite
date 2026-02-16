@@ -33,7 +33,7 @@ export default function AppPage() {
     };
 
     return (
-        <div className="h-screen w-full bg-gray-50 flex flex-col overflow-hidden">
+        <div className="h-screen w-full bg-gray-50 flex flex-col overflow-hidden app-mode">
             {/* Mode Switcher (Floating Top Right) */}
             <div className="absolute top-4 right-4 z-[500]">
                 <div className="bg-white rounded-full p-1 shadow-lg border border-gray-100 flex">

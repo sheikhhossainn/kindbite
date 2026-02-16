@@ -4,10 +4,20 @@
     z-index: 10;
 }
 
-/* Ensure body and HTML take full height */
+/* Ensure body and HTML take full height but ALLOW scrolling by default */
 html, body, #root {
     height: 100%;
     margin: 0;
     padding: 0;
-    overflow: hidden; /* Prevent double scrollbars */
+    /* overflow: hidden;  <-- REMOVED THIS to fix Landing Page scrolling */
+}
+
+/* Only apply fixed height/no-scroll to the App/Map container */
+.app-mode {
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
 }
