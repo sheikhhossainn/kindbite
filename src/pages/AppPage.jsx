@@ -34,8 +34,10 @@ export default function AppPage() {
     };
 
     const handleSignOut = async () => {
+        setProfile(null); // Clear profile data immediately
         await signOut();
-        navigate('/');
+        setActiveTab('map');
+        // Stay on the app page as guest
     };
 
     const handlePinAdd = (newPin) => {
@@ -105,7 +107,7 @@ export default function AppPage() {
                         >
                             {/* Initials or Avatar */}
                             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-red-500 text-white flex items-center justify-center text-xs font-bold shadow-sm">
-                                {profile?.full_name ? profile.full_name.substring(0, 2).toUpperCase() : '👤'}
+                                {profile?.full_name ? profile.full_name.substring(0, 2).toUpperCase() : user.email?.substring(0, 2).toUpperCase()}
                             </div>
                         </button>
                     ) : (
@@ -151,7 +153,7 @@ export default function AppPage() {
                             </div>
 
                             <div className="pt-12 pb-8 px-6 text-center mt-2">
-                                <h2 className="text-2xl font-bold text-gray-900">{profile?.full_name || 'Anonymous User'}</h2>
+                                <h2 className="text-2xl font-bold text-gray-900">{profile?.full_name || user?.email?.split('@')[0] || 'User'}</h2>
                                 <p className="text-sm text-gray-500 mb-6 font-medium">{user?.email}</p>
 
                                 <div className="grid grid-cols-2 gap-4 mb-8">
@@ -183,6 +185,7 @@ export default function AppPage() {
                 setActiveTab={setActiveTab}
                 mode={mode}
                 onFabClick={handleFabClick}
+                user={user}
             />
         </div>
     );

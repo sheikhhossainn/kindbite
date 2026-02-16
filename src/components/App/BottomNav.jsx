@@ -1,7 +1,7 @@
 import { MapIcon, TrophyIcon, UserIcon, PlusIcon, CameraIcon } from '@heroicons/react/24/outline';
 import { MapIcon as MapIconSolid, TrophyIcon as TrophyIconSolid, UserIcon as UserIconSolid } from '@heroicons/react/24/solid';
 
-export default function BottomNav({ activeTab, setActiveTab, mode, onFabClick }) {
+export default function BottomNav({ activeTab, setActiveTab, mode, onFabClick, user }) {
     return (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 shadow-[0_-5px_10px_rgba(0,0,0,0.02)] z-[1000] pb-safe">
             <div className="flex justify-around items-center h-16 max-w-md mx-auto relative">
@@ -42,7 +42,7 @@ export default function BottomNav({ activeTab, setActiveTab, mode, onFabClick })
 
                 {/* Profile Tab */}
                 <button
-                    onClick={() => setActiveTab('profile')}
+                    onClick={() => user ? setActiveTab('profile') : window.location.href = '/auth'}
                     className={`flex flex-col items-center justify-center w-16 transition-colors ${activeTab === 'profile' ? 'text-black' : 'text-gray-400'}`}
                 >
                     {activeTab === 'profile' ? <UserIconSolid className="w-6 h-6" /> : <UserIcon className="w-6 h-6" />}

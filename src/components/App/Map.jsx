@@ -1,6 +1,6 @@
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } from 'react-leaflet';
 import { divIcon } from 'leaflet';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import 'leaflet/dist/leaflet.css';
 import { calculateDistance } from '../../utils/location';
 
@@ -130,8 +130,24 @@ const userIcon = divIcon({
     iconAnchor: [20, 20]
 });
 
+// Auto-center map when user location is found
+function RecenterMap({ position, hasUserLocation }) {
+    const map = useMap();
+    const hasCenteredRef = useRef(false);
+
+    useEffect(() => {
+        if (hasUserLocation && !hasCenteredRef.current) {
+            map.flyTo(position, 16, { animate: true });
+            hasCenteredRef.current = true;
+        }
+    }, [position, hasUserLocation, map]);
+    return null;
+}
+
 export default function Map({ mode, pins, onPinAdd, onPinDelete, onPinEdit }) {
-    const [position, setPosition] = useState(null);
+    const [position, setPosition] = useState([23.8103, 90.4125]); // Default to Dhaka
+    const [locationPermission, setLocationPermission] = useState('prompt'); // prompt, granted, denied
+    const [hasUserLocation, setHasUserLocation] = useState(false);
     const [mapReady, setMapReady] = useState(false);
     const [errorMsg, setErrorMsg] = useState(null);
 
@@ -143,16 +159,26 @@ export default function Map({ mode, pins, onPinAdd, onPinDelete, onPinEdit }) {
     useEffect(() => {
         if ('geolocation' in navigator) {
             navigator.geolocation.watchPosition(
-                (pos) => setPosition([pos.coords.latitude, pos.coords.longitude]),
+                (pos) => {
+                    setPosition([pos.coords.latitude, pos.coords.longitude]);
+                    setLocationPermission('granted');
+                    setHasUserLocation(true);
+                },
                 (err) => {
-                    console.error(err);
-                    setPosition([23.8103, 90.4125]);
-                }
+                    console.error("Location Error:", err);
+                    // Only show denied screen if we haven't found the user yet
+                    if (!hasUserLocation) {
+                        setLocationPermission('denied');
+                    }
+                },
+                { enableHighAccuracy: true, timeout: 20000, maximumAge: 1000 }
             );
         } else {
-            setPosition([23.8103, 90.4125]);
+            setLocationPermission('denied');
         }
-    }, []);
+    }, [hasUserLocation]); // Dependency helps avoid stale closure issues if needed, but watchPosition is persistent. 
+    // Actually, avoiding dependency on hasUserLocation for the effect setup is better, 
+    // but we use state inside callback. Ref or functional update is better, but state is fine here.
 
     const handlePinCreateRequest = (latlng) => {
         setNewPinLocation(latlng);
@@ -177,8 +203,6 @@ export default function Map({ mode, pins, onPinAdd, onPinDelete, onPinEdit }) {
         setNewPinDesc('');
         setNewPinLocation(null);
     };
-
-    if (!position) return <div className="flex items-center justify-center h-screen bg-gray-50 font-bold text-gray-400">Locating...</div>;
 
     return (
         <div style={{ height: '100vh', width: '100vw', position: 'absolute', top: 0, left: 0, zIndex: 0 }}>
@@ -229,12 +253,41 @@ export default function Map({ mode, pins, onPinAdd, onPinDelete, onPinEdit }) {
                 </div>
             )}
 
+            {locationPermission === 'denied' && (
+                <div className="absolute inset-0 z-[1500] bg-black/40 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in">
+                    <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-sm text-center">
+                        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-red-500">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10.5a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-4.5h.75z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" className="opacity-70" />
+                            </svg>
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">Location Required</h3>
+                        <p className="text-gray-500 text-sm mb-6">
+                            KindBite needs your location to show food spots and hungry people near you.
+                        </p>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="w-full bg-orange-500 text-white py-3 rounded-xl font-bold hover:bg-orange-600 transition-colors shadow-lg"
+                        >
+                            Enable Location & Retry
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <MapContainer
                 center={position}
                 zoom={16}
                 style={{ height: '100%', width: '100%' }}
                 zoomControl={false}
+                className={locationPermission === 'denied' ? 'blur-sm grayscale' : ''}
             >
+                {/* Auto Recenter */}
+                <RecenterMap position={position} hasUserLocation={hasUserLocation} />
+
                 <TileLayer
                     attribution='&copy; OpenStreetMap'
                     url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
