@@ -34,6 +34,7 @@ export const AuthProvider = ({ children }) => {
             password,
             options: {
                 data: metadata,
+                emailRedirectTo: `${window.location.origin}/app`,
             },
         });
     };
@@ -45,12 +46,12 @@ export const AuthProvider = ({ children }) => {
         });
     };
 
-    const signInWithMagicLink = async (email) => {
+    const signInWithMagicLink = async (email, redirectTo = window.location.origin) => {
         return await supabase.auth.signInWithOtp({
             email,
             options: {
                 // Redirect to current page or specific route after login source
-                emailRedirectTo: window.location.origin,
+                emailRedirectTo: redirectTo,
             }
         });
     };

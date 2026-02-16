@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function Auth() {
     const [loading, setLoading] = useState(false);
@@ -11,6 +11,10 @@ export default function Auth() {
     const [isMagicLink, setIsMagicLink] = useState(false); // New state for Magic Link
     const { signIn, signUp, signInWithMagicLink } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // specific redirect or default to app
+    const from = location.state?.from?.pathname || '/app';
 
     // List of known disposable email domains - this can be expanded
     const DISPOSABLE_DOMAINS = [
@@ -41,7 +45,7 @@ export default function Auth() {
             } else if (isLogin) {
                 const { error } = await signIn(email, password);
                 if (error) throw error;
-                navigate('/app');
+                navigate(from, { replace: true });
             } else {
                 const { error } = await signUp(email, password, { full_name: fullName });
                 if (error) throw error;
@@ -110,7 +114,7 @@ export default function Auth() {
                         disabled={loading}
                         className="w-full rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 px-5 py-3 text-center text-sm font-bold text-white shadow-md transition-all hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-orange-300 disabled:opacity-70 disabled:cursor-not-allowed transform hover:scale-[1.01]"
                     >
-                        {loading ? 'Processing...' : (isMagicLink ? '✨ Send Magic Link' : (isLogin ? 'Sign In' : 'Sign Up'))}
+                        {loading ? 'Processing...' : (isMagicLink ? '✨ Send Link to Email' : (isLogin ? 'Sign In' : 'Sign Up'))}
                     </button>
                 </form>
 
@@ -121,7 +125,7 @@ export default function Auth() {
                         type="button"
                         className="text-sm font-medium text-gray-500 hover:text-orange-600 transition-colors"
                     >
-                        {isMagicLink ? '← Back to Password Login' : 'Or sign in with a Magic Link (No Password)'}
+                        {isMagicLink ? '← Back to Password Login' : 'Or sign in with without password'}
                     </button>
                 </div>
 
