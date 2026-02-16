@@ -45,6 +45,16 @@ export const AuthProvider = ({ children }) => {
         });
     };
 
+    const signInWithMagicLink = async (email) => {
+        return await supabase.auth.signInWithOtp({
+            email,
+            options: {
+                // Redirect to current page or specific route after login source
+                emailRedirectTo: window.location.origin,
+            }
+        });
+    };
+
     const signOut = async () => {
         return await supabase.auth.signOut();
     };
@@ -52,6 +62,7 @@ export const AuthProvider = ({ children }) => {
     const value = {
         signUp,
         signIn,
+        signInWithMagicLink,
         signOut,
         user,
         session,
