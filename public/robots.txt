@@ -1,0 +1,14 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://kindbite.vercel.app/sitemap.xml
+
+# Crawl-delay (be nice to servers)
+Crawl-delay: 1
+
+# Disallow admin routes
+User-agent: *
+Disallow: /admin-login
+Disallow: /admin-portal-secure

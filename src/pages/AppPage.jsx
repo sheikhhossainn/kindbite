@@ -16,6 +16,55 @@ export default function AppPage() {
     useEffect(() => {
         if (user) {
             getProfile();
+            loadPins();
+        } else {
+            // Load pins even for guests (view-only)
+            loadPins();
+        }
+    }, [user]);
+
+    // Load pins from database
+    const loadPins = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('pins')
+                .select('*')
+                .gt('expires_at', new Date().toISOString())
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            setPins(data || []);
+        } catch (error) {
+            console.error('Error loading pins:', error.message);
+        }
+    };
+
+    // Update user location in database for notifications
+    useEffect(() => {
+        if (!user) return;
+
+        const updateLocation = async (position) => {
+            try {
+                const { latitude, longitude } = position.coords;
+                await supabase
+                    .from('profiles')
+                    .update({
+                        location: `POINT(${longitude} ${latitude})`
+                    })
+                    .eq('id', user.id);
+            } catch (error) {
+                console.error('Error updating location:', error);
+            }
+        };
+
+        // Watch position and update periodically
+        if ('geolocation' in navigator) {
+            const watchId = navigator.geolocation.watchPosition(
+                updateLocation,
+                (err) => console.warn('Location tracking error:', err),
+                { enableHighAccuracy: true, maximumAge: 30000 }
+            );
+            return () => navigator.geolocation.clearWatch(watchId);
         }
     }, [user]);
 
@@ -40,18 +89,56 @@ export default function AppPage() {
         // Stay on the app page as guest
     };
 
-    const handlePinAdd = (newPin) => {
+    const handlePinAdd = async (newPin) => {
         if (!user) {
             if (window.confirm("You must be logged in to add a spot. Go to login?")) {
                 navigate('/auth');
             }
             return;
         }
-        setPins([...pins, newPin]);
+
+        try {
+            // Calculate expires_at based on TTL
+            const ttlHours = parseInt(newPin.ttl) || 2;
+            const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000).toISOString();
+
+            const { data, error } = await supabase
+                .from('pins')
+                .insert([{
+                    user_id: user.id,
+                    lat: newPin.lat,
+                    lng: newPin.lng,
+                    location: `POINT(${newPin.lng} ${newPin.lat})`,
+                    description: newPin.desc,
+                    ttl: newPin.ttl,
+                    expires_at: expiresAt
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            // Add to local state
+            setPins([data, ...pins]);
+        } catch (error) {
+            alert('Error creating pin: ' + error.message);
+        }
     };
 
-    const handlePinDelete = (pinId) => {
-        setPins(pins.filter(p => p.id !== pinId));
+    const handlePinDelete = async (pinId) => {
+        try {
+            const { error } = await supabase
+                .from('pins')
+                .delete()
+                .eq('id', pinId)
+                .eq('user_id', user.id); // Only allow deletion of own pins
+
+            if (error) throw error;
+
+            setPins(pins.filter(p => p.id !== pinId));
+        } catch (error) {
+            alert('Error deleting pin: ' + error.message);
+        }
     };
 
     const handlePinEdit = (pinId, newDesc) => {
