@@ -33,6 +33,7 @@ create table public.pins (
   lng double precision not null,
   description text not null,
   ttl text default '2h', -- Time to live (1h, 2h, 4h)
+  people_count int default 1 check (people_count between 1 and 5),
   created_at timestamp with time zone default now(),
   expires_at timestamp with time zone default (now() + interval '2 hours'),
   
@@ -147,3 +148,97 @@ begin
   where expires_at < now();
 end;
 $$ language plpgsql security definer;
+
+-- =====================================================
+-- 6. PIN LOCKING & TRUST SCORE LOGIC
+-- =====================================================
+
+-- Add status columns to pins table if they don't exist
+alter table public.pins 
+add column if not exists status text default 'open' check (status in ('open', 'locked', 'completed')),
+add column if not exists locked_by uuid references auth.users(id),
+add column if not exists locked_at timestamp with time zone;
+
+-- Index for status queries
+create index if not exists pins_status_idx on public.pins(status);
+
+-- Update RLS policies to allow updates
+create policy "Authenticated users can update pins"
+  on public.pins for update
+  using ( auth.uid() = user_id or auth.uid() = locked_by or locked_by is null )
+  with check ( auth.uid() = user_id or auth.uid() = locked_by or locked_by is null );
+
+-- ANTI-FRAUD: Prevent Self-Claiming & Deduct Points
+create or replace function public.detect_self_claiming()
+returns trigger as $$
+begin
+  -- Check if user is trying to lock their own pin
+  if new.status = 'locked' and new.locked_by = new.user_id then
+    
+    -- Deduct 10 points for attempting fraud
+    update public.profiles
+    set trust_score = trust_score - 10
+    where id = new.user_id;
+
+    raise exception 'You cannot claim your own pin! 10 Trust Score deducted for suspicious activity.';
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_pin_lock_attempt
+  before update on public.pins
+  for each row execute function public.detect_self_claiming();
+
+
+-- HANDLE COMPLETION: Award 50 points to both parties
+create or replace function public.handle_pin_completion()
+returns trigger as $$
+begin
+  if new.status = 'completed' and old.status != 'completed' then
+    -- Reward Spotter (Creator)
+    update public.profiles
+    set trust_score = trust_score + 50
+    where id = new.user_id;
+
+    -- Reward Donor (fulfiller)
+    update public.profiles
+    set trust_score = trust_score + 50
+    where id = new.locked_by;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_pin_completed
+  after update on public.pins
+  for each row execute function public.handle_pin_completion();
+
+
+-- HANDLE CANCELLATION: Deduct 5 points if > 30 mins
+create or replace function public.handle_pin_cancellation()
+returns trigger as $$
+begin
+  -- If status changes from 'locked' to 'open' (cancellation)
+  if new.status = 'open' and old.status = 'locked' then
+    
+    -- Check if locked for more than 30 minutes
+    if (now() - old.locked_at) > interval '30 minutes' then
+       update public.profiles
+       set trust_score = trust_score - 5
+       where id = old.locked_by;
+    end if;
+    
+    -- Reset locked fields
+    new.locked_by = null;
+    new.locked_at = null;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_pin_cancelled
+  before update on public.pins
+  for each row execute function public.handle_pin_cancellation();
+
+

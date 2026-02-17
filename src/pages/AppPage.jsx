@@ -4,6 +4,7 @@ import BottomNav from '../components/App/BottomNav';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
+import NotificationBell from '../components/App/NotificationBell';
 
 export default function AppPage() {
     const [activeTab, setActiveTab] = useState('map');
@@ -111,6 +112,7 @@ export default function AppPage() {
                     location: `POINT(${newPin.lng} ${newPin.lat})`,
                     description: newPin.desc,
                     ttl: newPin.ttl,
+                    people_count: newPin.people_count,
                     expires_at: expiresAt
                 }])
                 .select()
@@ -165,6 +167,74 @@ export default function AppPage() {
         }
     };
 
+    // --- LOCKING & COMPLETION LOGIC ---
+
+    const handlePinLock = async (pinId) => {
+        if (!user) {
+            if (window.confirm("Login required to help. Go to login?")) navigate('/auth');
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from('pins')
+                .update({
+                    status: 'locked',
+                    locked_by: user.id,
+                    locked_at: new Date().toISOString()
+                })
+                .eq('id', pinId)
+                .eq('status', 'open'); // Ensure it's still open
+
+            if (error) throw error;
+
+            // UI Update (Optimistic or wait for realtime)
+            loadPins();
+            loadPins();
+            alert("Lock successful! 🛡️\n\nFollow the blue route to the spot.\n\nNote: If you cancel after 30 minutes, you will receive a Trust Score penalty (-5).");
+        } catch (error) {
+            alert("Could not lock pin. It might be taken or you are the creator (Anti-Fraud). " + error.message);
+        }
+    };
+
+    const handlePinCancel = async (pinId) => {
+        if (!confirm("Are you sure? If verified late (>30m), you lose 5 Trust Score.")) return;
+
+        try {
+            const { error } = await supabase
+                .from('pins')
+                .update({
+                    status: 'open',
+                    locked_by: null,
+                    locked_at: null
+                })
+                .eq('id', pinId)
+                .eq('locked_by', user.id);
+
+            if (error) throw error;
+            loadPins();
+        } catch (error) {
+            alert('Error cancelling: ' + error.message);
+        }
+    };
+
+    const handlePinComplete = async (pinId) => {
+        try {
+            const { error } = await supabase
+                .from('pins')
+                .update({ status: 'completed' })
+                .eq('id', pinId)
+                .eq('locked_by', user.id);
+
+            if (error) throw error;
+
+            loadPins();
+            alert("Success! +50 Trust Score awarded to both you and the spotter! 🎉");
+        } catch (error) {
+            alert('Error completing: ' + error.message);
+        }
+    };
+
     return (
         <div className="h-screen w-full bg-gray-50 flex flex-col overflow-hidden app-mode">
             {/* Top Bar: Mode Switcher + Auth Widget */}
@@ -185,6 +255,9 @@ export default function AppPage() {
                             Spotter
                         </button>
                     </div>
+
+                    {/* Notification Bell */}
+                    {user && <NotificationBell user={user} />}
 
                     {/* Auth Status / Login Button */}
                     {user ? (
@@ -210,22 +283,33 @@ export default function AppPage() {
 
             {/* Main Content Area */}
             <div className="flex-1 relative h-full w-full">
-                {activeTab === 'map' && (
-                    <div className="absolute inset-0">
-                        <Map
-                            mode={mode}
-                            pins={pins}
-                            onPinAdd={handlePinAdd}
-                            onPinDelete={handlePinDelete}
-                            onPinEdit={handlePinEdit}
-                        />
-                    </div>
-                )}
+                {/* Map is ALWAYS rendered to preserve state/tiles, just hidden via z-index if not active */}
+                <div className={`absolute inset-0 transition-opacity duration-300 ${activeTab === 'map' ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
+                    <Map
+                        mode={mode}
+                        pins={pins}
+                        user={user}
+                        onPinAdd={handlePinAdd}
+                        onPinDelete={handlePinDelete}
+                        onPinEdit={handlePinEdit}
+                        onPinLock={handlePinLock}
+                        onPinCancel={handlePinCancel}
+                        onPinComplete={handlePinComplete}
+                    />
+                </div>
                 {activeTab === 'profile' && (
-                    <div className="flex flex-col items-center justify-center h-full p-6 bg-gray-50">
+                    <div className="flex flex-col items-center justify-center h-full p-6 bg-gray-50 z-20 relative">
                         <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
                             {/* Header Background - Warm Orange Gradient */}
                             <div className="bg-gradient-to-r from-orange-400 to-red-500 h-32 relative">
+                                <button
+                                    onClick={() => setActiveTab('map')}
+                                    className="absolute top-4 right-4 text-white/80 hover:text-white hover:bg-white/20 rounded-full p-2 transition-all"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
                                 <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2">
                                     <div className="w-24 h-24 bg-white rounded-full p-1 shadow-lg">
                                         <div className="w-full h-full bg-orange-50 rounded-full flex items-center justify-center text-3xl overflow-hidden border-2 border-orange-100">

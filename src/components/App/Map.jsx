@@ -1,7 +1,12 @@
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } from 'react-leaflet';
 import { divIcon } from 'leaflet';
+import L from 'leaflet';
 import { useEffect, useState, useRef } from 'react';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet-routing-machine';
+import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
+// SAFELIST FOR TAILWIND: bg-red-500 bg-emerald-600 bg-gray-500 border-red-200 border-white text-red-500
+// These classes are used dynamically producing strings, so we mention them here to ensure Tailwind compiles them.
 import { calculateDistance } from '../../utils/location';
 
 // --- Constants (Heroicon-style Professional SVGs) ---
@@ -10,49 +15,43 @@ const ICONS = {
     // Professional User Location: White circle with gray User Silhouette (Heroicon style)
     USER_LOC: `
         <div class="relative w-10 h-10 flex items-center justify-center">
-             <!-- Pulse Effect -->
             <div class="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-20"></div>
-            
-            <!-- White Background Circle -->
             <div class="relative w-8 h-8 bg-white rounded-full border-2 border-white shadow-lg flex items-center justify-center overflow-hidden">
-                <!-- User Silhouette (Gray) -->
                 <div class="w-full h-full bg-gray-100 flex items-center justify-center">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-gray-500 mt-1">
                         <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clip-rule="evenodd" />
                     </svg>
                 </div>
             </div>
-            
-            <!-- Direction/Heading Indicator (Optional small arrow) -->
             <div class="absolute -bottom-1 w-2 h-2 bg-white transform rotate-45 border-r border-b border-white z-0"></div>
         </div>
     `,
+    HUNGER: (initials = "JD", status = 'open', isMe = false) => {
+        let bgColor = 'bg-emerald-600'; // Default (Changed to Emerald to test update)
+        let borderColor = 'border-white';
 
-    // Professional Hunger Pin: Standard Orange Map Pin with User Avatar/Icon inside
-    HUNGER: (initials = "JD") => `
+        if (status === 'locked') {
+            bgColor = 'bg-gray-500';
+        } else if (isMe) {
+            bgColor = 'bg-red-500'; // My Pin (Red)
+            borderColor = 'border-red-200'; // Light red border for visibility
+        }
+
+        return `
         <div class="relative w-12 h-12 flex flex-col items-center justify-end group hover:-translate-y-1 transition-transform duration-200">
-             <!-- Pin Head -->
-             <div class="relative w-10 h-10 bg-orange-600 rounded-full shadow-lg border-2 border-white flex items-center justify-center z-10">
-                <!-- Inner Icon (Bowl/Hand) -->
+             <div class="relative w-10 h-10 ${bgColor} rounded-full shadow-lg border-2 ${borderColor} flex items-center justify-center z-10">
                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-white">
                     <path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
                  </svg>
-                 
-                 <!-- Small Avatar Badge Overlay -->
                  <div class="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center border border-gray-100 shadow-sm">
                     <span class="text-[7px] font-bold text-gray-800">${initials}</span>
                  </div>
              </div>
-             
-             <!-- Pin Point/Stem -->
-             <div class="w-0.5 h-3 bg-orange-600/50 rounded-b-full"></div>
-             
-             <!-- Shadow on Ground -->
+             <div class="w-0.5 h-3 ${bgColor.replace('bg-', 'bg-').replace('600', '600/50').replace('500', '500/50')} rounded-b-full"></div>
              <div class="w-4 h-1 bg-black/10 rounded-full blur-[1px]"></div>
         </div>
-    `,
-
-    // Professional Rescue Pin: Green Map Pin
+    `
+    },
     RESCUE: `
         <div class="relative w-10 h-10 flex flex-col items-center justify-end group hover:-translate-y-1 transition-transform duration-200">
              <div class="relative w-8 h-8 bg-green-600 rounded-full shadow-lg border-2 border-white flex items-center justify-center z-10">
@@ -102,13 +101,53 @@ function LocationButton({ position }) {
     );
 }
 
+// Routing Machine Component
+function RoutingControl({ position, destination }) {
+    const map = useMap();
+
+    useEffect(() => {
+        if (!position || !destination) return;
+
+        if (!L.Routing) {
+            console.error("Leaflet Routing Machine not loaded");
+            return;
+        }
+
+        const routingControl = L.Routing.control({
+            waypoints: [
+                L.latLng(position[0], position[1]),
+                L.latLng(destination.lat, destination.lng)
+            ],
+            routeWhileDragging: false,
+            showAlternatives: false,
+            addWaypoints: false,
+            fitSelectedRoutes: true,
+            show: false, // Hide the instructions panel
+            lineOptions: {
+                styles: [{ color: '#3b82f6', weight: 5, opacity: 0.7 }]
+            },
+            createMarker: function () { return null; } // Don't create markers for start/end
+        }).addTo(map);
+
+        return () => {
+            try {
+                map.removeControl(routingControl);
+            } catch (e) {
+                console.warn("Error removing routing control", e);
+            }
+        };
+    }, [map, position, destination]);
+
+    return null;
+}
+
 // --- Icons Setup ---
 
-const createHungerIcon = (user = "JD") => {
+const createHungerIcon = (user = "JD", status = 'open', isMe = false) => {
     const initials = user.length > 2 ? user.substring(0, 2).toUpperCase() : user.toUpperCase();
     return divIcon({
         className: 'custom-pin-marker',
-        html: ICONS.HUNGER(initials),
+        html: ICONS.HUNGER(initials, status, isMe),
         iconSize: [48, 48],
         iconAnchor: [24, 48],
         popupAnchor: [0, -48]
@@ -144,7 +183,7 @@ function RecenterMap({ position, hasUserLocation }) {
     return null;
 }
 
-export default function Map({ mode, pins, onPinAdd, onPinDelete, onPinEdit }) {
+export default function Map({ mode, pins, user, onPinAdd, onPinDelete, onPinEdit, onPinLock, onPinCancel, onPinComplete }) {
     const [position, setPosition] = useState([23.8103, 90.4125]); // Default to Dhaka
     const [locationPermission, setLocationPermission] = useState('prompt'); // prompt, granted, denied
     const [hasUserLocation, setHasUserLocation] = useState(false);
@@ -155,6 +194,10 @@ export default function Map({ mode, pins, onPinAdd, onPinDelete, onPinEdit }) {
     const [newPinLocation, setNewPinLocation] = useState(null);
     const [newPinDesc, setNewPinDesc] = useState('');
     const [newPinTTL, setNewPinTTL] = useState('2h');
+    const [peopleCount, setPeopleCount] = useState(1);
+
+    // Navigation State
+    const activeRoutePin = pins.find(p => p.status === 'locked' && p.locked_by === user?.id);
 
     useEffect(() => {
         if ('geolocation' in navigator) {
@@ -166,7 +209,6 @@ export default function Map({ mode, pins, onPinAdd, onPinDelete, onPinEdit }) {
                 },
                 (err) => {
                     console.error("Location Error:", err);
-                    // Only show denied screen if we haven't found the user yet
                     if (!hasUserLocation) {
                         setLocationPermission('denied');
                     }
@@ -176,9 +218,7 @@ export default function Map({ mode, pins, onPinAdd, onPinDelete, onPinEdit }) {
         } else {
             setLocationPermission('denied');
         }
-    }, [hasUserLocation]); // Dependency helps avoid stale closure issues if needed, but watchPosition is persistent. 
-    // Actually, avoiding dependency on hasUserLocation for the effect setup is better, 
-    // but we use state inside callback. Ref or functional update is better, but state is fine here.
+    }, [hasUserLocation]);
 
     const handlePinCreateRequest = (latlng) => {
         setNewPinLocation(latlng);
@@ -186,7 +226,10 @@ export default function Map({ mode, pins, onPinAdd, onPinDelete, onPinEdit }) {
     };
 
     const submitNewPin = () => {
-        if (!newPinDesc.trim()) return;
+        if (!newPinDesc.trim() || newPinDesc.length < 3) {
+            alert("Please provide a description (min 3 chars).");
+            return;
+        }
         const newPin = {
             id: Date.now(),
             lat: newPinLocation.lat,
@@ -195,6 +238,7 @@ export default function Map({ mode, pins, onPinAdd, onPinDelete, onPinEdit }) {
             title: 'Hunger Spot',
             desc: newPinDesc,
             ttl: newPinTTL,
+            people_count: peopleCount,
             trustScore: 100,
             user: 'Me'
         };
@@ -202,10 +246,12 @@ export default function Map({ mode, pins, onPinAdd, onPinDelete, onPinEdit }) {
         setIsCreatingPin(false);
         setNewPinDesc('');
         setNewPinLocation(null);
+        setPeopleCount(1);
     };
 
     return (
         <div style={{ height: '100vh', width: '100vw', position: 'absolute', top: 0, left: 0, zIndex: 0 }}>
+            {/* Same Error/Pin Creation Views */}
             {errorMsg && (
                 <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[1000] bg-red-500 text-white px-4 py-2 rounded-full shadow-lg text-sm font-semibold animate-fade-in-out">
                     {errorMsg}
@@ -229,6 +275,21 @@ export default function Map({ mode, pins, onPinAdd, onPinDelete, onPinEdit }) {
                                 onChange={e => setNewPinDesc(e.target.value)}
                             />
                         </div>
+                        <div className="mb-4">
+                            <label className="text-xs font-bold text-gray-400 uppercase">People in Need</label>
+                            <div className="flex gap-2 mt-1">
+                                {[1, 2, 3, 4, 5].map(bucket => (
+                                    <button
+                                        key={bucket}
+                                        onClick={() => setPeopleCount(bucket)}
+                                        className={`w-10 h-10 rounded-full text-sm font-bold transition-all border ${peopleCount === bucket ? 'bg-orange-500 text-white border-orange-500 shadow-md scale-110' : 'bg-white text-gray-600 border-gray-200'}`}
+                                    >
+                                        {bucket}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
                         <div className="mb-6">
                             <label className="text-xs font-bold text-gray-400 uppercase">Expires In</label>
                             <div className="flex gap-2 mt-1">
@@ -253,6 +314,7 @@ export default function Map({ mode, pins, onPinAdd, onPinDelete, onPinEdit }) {
                 </div>
             )}
 
+            {/* Same Location Denied View */}
             {locationPermission === 'denied' && (
                 <div className="absolute inset-0 z-[1500] bg-black/40 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in">
                     <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-sm text-center">
@@ -308,44 +370,88 @@ export default function Map({ mode, pins, onPinAdd, onPinDelete, onPinEdit }) {
                     <Circle center={position} radius={100} pathOptions={{ color: '#f97316', fillColor: '#f97316', fillOpacity: 0.05, weight: 1.5, dashArray: '6, 6' }} />
                 )}
 
-                {pins.map(pin => (
-                    <Marker
-                        key={pin.id}
-                        position={[pin.lat, pin.lng]}
-                        icon={pin.type === 'hunger' ? createHungerIcon(pin.user) : rescueIcon}
-                        draggable={mode === 'spotter' && pin.user === 'Me'}
-                    >
-                        <Popup className="custom-popup" closeButton={false}>
-                            <div className="min-w-[160px] p-1">
-                                <div className="flex items-center gap-2 mb-2 border-b border-gray-100 pb-2">
-                                    <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-[9px] font-bold text-gray-600 border border-gray-200">
-                                        {pin.user ? pin.user.substring(0, 2).toUpperCase() : 'JD'}
+                {/* Routing Line if Active */}
+                {activeRoutePin && (
+                    <RoutingControl position={position} destination={activeRoutePin} />
+                )}
+
+                {pins.map(pin => {
+                    const isLockedByMe = pin.locked_by === user?.id;
+                    const isLockedByOther = pin.status === 'locked' && !isLockedByMe;
+                    const isMe = pin.user_id === user?.id;
+
+                    return (
+                        <Marker
+                            key={pin.id}
+                            position={[pin.lat, pin.lng]}
+                            icon={pin.type === 'hunger' ? createHungerIcon(pin.user, pin.status, isMe) : rescueIcon}
+                            draggable={mode === 'spotter' && isMe}
+                        >
+                            <Popup className="custom-popup" closeButton={false}>
+                                <div className="min-w-[170px] p-2">
+                                    <div className="flex items-center gap-2 mb-2 border-b border-gray-100 pb-2">
+                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold border border-gray-200 ${pin.status === 'locked' ? 'bg-gray-200 text-gray-500' : 'bg-orange-50 text-orange-600'}`}>
+                                            {pin.user ? pin.user.substring(0, 2).toUpperCase() : 'JD'}
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-bold text-gray-900 leading-none">
+                                                {pin.user || "User"} {isMe && <span className="text-red-500">(You)</span>}
+                                            </span>
+                                            <span className="text-[9px] text-gray-400">
+                                                {pin.status === 'locked' ? (isLockedByMe ? 'Locked by YOU' : 'Locked by someone') : (pin.ttl || '2h') + ' left'}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-xs font-bold text-gray-900 leading-none">{pin.user || "User"}</span>
-                                        <span className="text-[9px] text-gray-400">{pin.ttl || '2h'} left</span>
-                                    </div>
+                                    <p className="text-xs text-gray-600 mb-3 font-normal leading-relaxed">{pin.desc}</p>
+
+                                    {/* Action Buttons */}
+                                    {mode === 'spotter' && isMe ? (
+                                        pin.status === 'locked' ? (
+                                            <div className="w-full bg-gray-100 text-gray-500 py-1.5 rounded-md text-[10px] font-bold text-center border border-gray-200">
+                                                Locked by Donor - Cannot Delete 🛡️
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => onPinDelete(pin.id)}
+                                                className="w-full bg-red-50 text-red-600 py-1.5 rounded-md text-xs font-bold hover:bg-red-100 transition-colors flex items-center justify-center gap-1"
+                                            >
+                                                Delete Pin
+                                            </button>
+                                        )
+                                    ) : mode === 'donor' ? (
+                                        isLockedByMe ? (
+                                            <div className="space-y-2">
+                                                <button
+                                                    onClick={() => onPinComplete(pin.id)}
+                                                    className="w-full bg-green-500 text-white py-1.5 rounded-md text-xs font-bold hover:bg-green-600 shadow-sm animate-pulse"
+                                                >
+                                                    IM HERE - COMPLETE (+50 TS)
+                                                </button>
+                                                <button
+                                                    onClick={() => onPinCancel(pin.id)}
+                                                    className="w-full bg-gray-100 text-gray-600 py-1.5 rounded-md text-[10px] font-bold hover:bg-gray-200"
+                                                >
+                                                    Cancel Help
+                                                </button>
+                                            </div>
+                                        ) : isLockedByOther ? (
+                                            <button disabled className="w-full bg-gray-100 text-gray-400 py-1.5 rounded-md text-xs font-bold cursor-not-allowed">
+                                                Locked by another Donor 🔒
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => onPinLock(pin.id)}
+                                                className="w-full bg-orange-500 text-white py-1.5 rounded-md text-xs font-bold hover:bg-orange-600 shadow-sm"
+                                            >
+                                                Rescue & Lock (-10 TS if fraud) 🛡️
+                                            </button>
+                                        )
+                                    ) : null}
                                 </div>
-                                <p className="text-xs text-gray-600 mb-3 font-normal leading-relaxed">{pin.desc}</p>
-                                {mode === 'spotter' ? (
-                                    <button
-                                        onClick={() => onPinDelete(pin.id)}
-                                        className="w-full bg-red-50 text-red-600 py-1.5 rounded-md text-xs font-bold hover:bg-red-100 transition-colors flex items-center justify-center gap-1"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
-                                            <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
-                                        </svg>
-                                        Delete Pin
-                                    </button>
-                                ) : (
-                                    <button className="w-full bg-green-500 text-white py-1.5 rounded-md text-xs font-bold hover:bg-green-600 shadow-sm">
-                                        Rescue 💚
-                                    </button>
-                                )}
-                            </div>
-                        </Popup>
-                    </Marker>
-                ))}
+                            </Popup>
+                        </Marker>
+                    )
+                })}
             </MapContainer>
         </div>
     );
