@@ -188,10 +188,12 @@ export default function AppPage() {
 
             if (error) throw error;
 
-            // UI Update (Optimistic or wait for realtime)
-            loadPins();
-            loadPins();
-            alert("Lock successful! 🛡️\n\nFollow the blue route to the spot.\n\nNote: If you cancel after 30 minutes, you will receive a Trust Score penalty (-5).");
+            // UI Update — await so state updates before any blocking message
+            await loadPins();
+            // Delay the message so the route renders FIRST
+            setTimeout(() => {
+                alert("Lock successful! 🛡️\n\nFollow the blue route to the spot.\n\nNote: If you cancel after 30 minutes, you will receive a Trust Score penalty (-5).");
+            }, 500);
         } catch (error) {
             alert("Could not lock pin. It might be taken or you are the creator (Anti-Fraud). " + error.message);
         }

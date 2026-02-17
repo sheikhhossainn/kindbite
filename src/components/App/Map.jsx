@@ -5,8 +5,6 @@ import { useEffect, useState, useRef } from 'react';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-routing-machine';
 import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
-// SAFELIST FOR TAILWIND: bg-red-500 bg-emerald-600 bg-gray-500 border-red-200 border-white text-red-500
-// These classes are used dynamically producing strings, so we mention them here to ensure Tailwind compiles them.
 import { calculateDistance } from '../../utils/location';
 
 // --- Constants (Heroicon-style Professional SVGs) ---
@@ -27,28 +25,29 @@ const ICONS = {
         </div>
     `,
     HUNGER: (initials = "JD", status = 'open', isMe = false) => {
-        let bgColor = 'bg-emerald-600'; // Default (Changed to Emerald to test update)
-        let borderColor = 'border-white';
+        // Use inline hex colors — Tailwind can't compile dynamic classes in raw HTML strings
+        let pinColor = '#16a34a';        // green-600 (others)
+        let borderCol = '#ffffff';       // white
+        let stickColor = 'rgba(22,163,74,0.5)';
 
         if (status === 'locked') {
-            bgColor = 'bg-gray-500';
+            pinColor = '#6b7280';         // gray-500
+            stickColor = 'rgba(107,114,128,0.5)';
         } else if (isMe) {
-            bgColor = 'bg-red-500'; // My Pin (Red)
-            borderColor = 'border-red-200'; // Light red border for visibility
+            pinColor = '#ef4444';         // red-500 (my pin)
+            borderCol = '#fecaca';        // red-200
+            stickColor = 'rgba(239,68,68,0.5)';
         }
 
         return `
-        <div class="relative w-12 h-12 flex flex-col items-center justify-end group hover:-translate-y-1 transition-transform duration-200">
-             <div class="relative w-10 h-10 ${bgColor} rounded-full shadow-lg border-2 ${borderColor} flex items-center justify-center z-10">
-                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-white">
+        <div style="position:relative;width:48px;height:48px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;">
+             <div style="position:relative;width:40px;height:40px;background:${pinColor};border-radius:50%;box-shadow:0 4px 6px rgba(0,0,0,0.15);border:2px solid ${borderCol};display:flex;align-items:center;justify-content:center;z-index:10;">
+                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" style="width:20px;height:20px;">
                     <path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
                  </svg>
-                 <div class="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center border border-gray-100 shadow-sm">
-                    <span class="text-[7px] font-bold text-gray-800">${initials}</span>
-                 </div>
              </div>
-             <div class="w-0.5 h-3 ${bgColor.replace('bg-', 'bg-').replace('600', '600/50').replace('500', '500/50')} rounded-b-full"></div>
-             <div class="w-4 h-1 bg-black/10 rounded-full blur-[1px]"></div>
+             <div style="width:2px;height:12px;background:${stickColor};border-radius:0 0 4px 4px;"></div>
+             <div style="width:16px;height:4px;background:rgba(0,0,0,0.1);border-radius:50%;filter:blur(1px);"></div>
         </div>
     `
     },
@@ -384,7 +383,7 @@ export default function Map({ mode, pins, user, onPinAdd, onPinDelete, onPinEdit
                         <Marker
                             key={pin.id}
                             position={[pin.lat, pin.lng]}
-                            icon={pin.type === 'hunger' ? createHungerIcon(pin.user, pin.status, isMe) : rescueIcon}
+                            icon={pin.type === 'rescue' ? rescueIcon : createHungerIcon(pin.user, pin.status, isMe)}
                             draggable={mode === 'spotter' && isMe}
                         >
                             <Popup className="custom-popup" closeButton={false}>

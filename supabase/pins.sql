@@ -147,7 +147,8 @@ begin
   delete from public.pins
   where expires_at < now();
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer
+set search_path = public;
 
 -- =====================================================
 -- 6. PIN LOCKING & TRUST SCORE LOGIC
@@ -184,7 +185,8 @@ begin
   end if;
   return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer
+set search_path = public;
 
 create trigger on_pin_lock_attempt
   before update on public.pins
@@ -208,7 +210,8 @@ begin
   end if;
   return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer
+set search_path = public;
 
 create trigger on_pin_completed
   after update on public.pins
@@ -235,7 +238,8 @@ begin
   end if;
   return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer
+set search_path = public;
 
 create trigger on_pin_cancelled
   before update on public.pins
