@@ -11,11 +11,8 @@ export default function LandingPage() {
     const { user, session } = useAuth();
     const navigate = useNavigate();
 
-    useEffect(() => {
-        if (session) {
-            navigate('/app');
-        }
-    }, [session, navigate]);
+    // Removed auto-redirect to allow users to visit landing page
+    // Users can click 'Open App' to go to /app explicitly
 
     return (
         <div className="min-h-screen">

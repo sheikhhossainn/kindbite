@@ -18,13 +18,13 @@ export default defineConfig({
         display: 'standalone',
         icons: [
           {
-            src: '/logo.svg',
+            src: '/logo.svg?v=2',
             sizes: 'any',
             type: 'image/svg+xml',
             purpose: 'any'
           },
           {
-            src: '/logo-maskable.svg',
+            src: '/logo-maskable.svg?v=2',
             sizes: 'any',
             type: 'image/svg+xml',
             purpose: 'maskable'
