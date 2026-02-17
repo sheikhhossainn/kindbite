@@ -1,0 +1,22 @@
+<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Solid White Background for Maskable Icon -->
+  <rect width="100" height="100" fill="#ffffff"/>
+  
+  <!-- Safe Area Padding (Maskable icons need padding) -->
+  <g transform="translate(10, 10) scale(0.8)">
+      <!-- The Bowl Shape - Orange -->
+      <path d="M20 50 C20 70 35 85 50 85 C65 85 80 70 80 50 L20 50 Z" fill="#f97316"/>
+      <!-- The Rice Mound - Warm White/Cream -->
+      <path d="M25 50 C25 35 35 25 50 25 C65 25 75 35 75 50 H25 Z" fill="#fff7ed"/>
+      <!-- Rice Grain Details -->
+      <circle cx="40" cy="35" r="2" fill="#fed7aa"/>
+      <circle cx="50" cy="30" r="2" fill="#fed7aa"/>
+      <circle cx="60" cy="35" r="2" fill="#fed7aa"/>
+      <circle cx="45" cy="42" r="2" fill="#fed7aa"/>
+      <circle cx="55" cy="42" r="2" fill="#fed7aa"/>
+      <!-- Steam Lines -->
+      <path d="M40 20 C38 15 40 10 40 10" stroke="#f97316" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+      <path d="M50 15 C48 10 50 5 50 5" stroke="#f97316" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+      <path d="M60 20 C58 15 60 10 60 10" stroke="#f97316" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+  </g>
+</svg>
