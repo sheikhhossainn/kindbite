@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents, Tooltip } from 'react-leaflet';
 import { divIcon } from 'leaflet';
 import L from 'leaflet';
 import { useEffect, useState, useRef } from 'react';
@@ -69,13 +69,18 @@ const ICONS = {
 function MapClickHandler({ position, mode, onPinCreateRequest, onError }) {
     useMapEvents({
         click(e) {
+            // Check if click target is likely a button or popup interaction
+            if (e.originalEvent.target.closest('button') || e.originalEvent.target.closest('.leaflet-popup-content-wrapper')) {
+                return;
+            }
+
             if (mode !== 'spotter' || !position) return;
             const distance = calculateDistance(
                 position[0], position[1],
                 e.latlng.lat, e.latlng.lng
             );
-            if (distance > 100) {
-                onError(`Too far! You can only pin within 100m of your location.`);
+            if (distance > 200) { // Changed to 200m based on requirements
+                onError(`Too far! You can only pin within 200m of your location.`);
             } else {
                 onPinCreateRequest(e.latlng);
             }
@@ -89,7 +94,7 @@ function LocationButton({ position }) {
     return (
         <div className="absolute bottom-24 right-4 z-[400]">
             <button
-                onClick={() => position && map.flyTo(position, 16)}
+                onClick={() => position && map.flyTo(position, 17, { animate: true })} // Zoom 17 (~200m view)
                 className="bg-white w-12 h-12 rounded-full shadow-lg flex items-center justify-center text-gray-700 hover:bg-gray-50 active:scale-95 transition-all border border-gray-100"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-gray-700">
@@ -175,18 +180,17 @@ function RecenterMap({ position, hasUserLocation }) {
 
     useEffect(() => {
         if (hasUserLocation && !hasCenteredRef.current) {
-            map.flyTo(position, 16, { animate: true });
+            map.flyTo(position, 17, { animate: true }); // Default zoom 17 (~200m)
             hasCenteredRef.current = true;
         }
     }, [position, hasUserLocation, map]);
     return null;
 }
 
-export default function Map({ mode, pins, user, onPinAdd, onPinDelete, onPinEdit, onPinLock, onPinCancel, onPinComplete }) {
+export default function Map({ mode, pins, user, onPinAdd, onPinDelete, onPinEdit, onPinLock, onPinCancel, onPinComplete, onPinMove }) {
     const [position, setPosition] = useState([23.8103, 90.4125]); // Default to Dhaka
     const [locationPermission, setLocationPermission] = useState('prompt'); // prompt, granted, denied
     const [hasUserLocation, setHasUserLocation] = useState(false);
-    const [mapReady, setMapReady] = useState(false);
     const [errorMsg, setErrorMsg] = useState(null);
 
     const [isCreatingPin, setIsCreatingPin] = useState(false);
@@ -194,6 +198,9 @@ export default function Map({ mode, pins, user, onPinAdd, onPinDelete, onPinEdit
     const [newPinDesc, setNewPinDesc] = useState('');
     const [newPinTTL, setNewPinTTL] = useState('2h');
     const [peopleCount, setPeopleCount] = useState(1);
+
+    // Additional ref to block map clicks when dragging
+    const isDraggingRef = useRef(false);
 
     // Navigation State
     const activeRoutePin = pins.find(p => p.status === 'locked' && p.locked_by === user?.id);
@@ -220,6 +227,7 @@ export default function Map({ mode, pins, user, onPinAdd, onPinDelete, onPinEdit
     }, [hasUserLocation]);
 
     const handlePinCreateRequest = (latlng) => {
+        if (isDraggingRef.current) return; // Don't create if dragging
         setNewPinLocation(latlng);
         setIsCreatingPin(true);
     };
@@ -258,7 +266,9 @@ export default function Map({ mode, pins, user, onPinAdd, onPinDelete, onPinEdit
             )}
 
             {isCreatingPin && (
-                <div className="absolute inset-0 z-[2000] bg-black/50 flex items-end justify-center p-4 animate-fade-in">
+                <div className="absolute inset-0 z-[2000] bg-black/50 flex items-end justify-center p-4 animate-fade-in" onClick={(e) => {
+                    if (e.target === e.currentTarget) setIsCreatingPin(false);
+                }}>
                     <div className="bg-white w-full max-w-sm p-6 rounded-2xl shadow-xl mb-20 animate-slide-up">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold text-gray-900">📍 New Spot</h3>
@@ -341,7 +351,7 @@ export default function Map({ mode, pins, user, onPinAdd, onPinDelete, onPinEdit
 
             <MapContainer
                 center={position}
-                zoom={16}
+                zoom={17}
                 style={{ height: '100%', width: '100%' }}
                 zoomControl={false}
                 className={locationPermission === 'denied' ? 'blur-sm grayscale' : ''}
@@ -366,7 +376,7 @@ export default function Map({ mode, pins, user, onPinAdd, onPinDelete, onPinEdit
                 <Marker position={position} icon={userIcon}><Popup>You are Here</Popup></Marker>
 
                 {mode === 'spotter' && (
-                    <Circle center={position} radius={100} pathOptions={{ color: '#f97316', fillColor: '#f97316', fillOpacity: 0.05, weight: 1.5, dashArray: '6, 6' }} />
+                    <Circle center={position} radius={200} pathOptions={{ color: '#f97316', fillColor: '#f97316', fillOpacity: 0.05, weight: 1.5, dashArray: '6, 6' }} />
                 )}
 
                 {/* Routing Line if Active */}
@@ -385,12 +395,29 @@ export default function Map({ mode, pins, user, onPinAdd, onPinDelete, onPinEdit
                             position={[pin.lat, pin.lng]}
                             icon={pin.type === 'rescue' ? rescueIcon : createHungerIcon(pin.user, pin.status, isMe)}
                             draggable={mode === 'spotter' && isMe}
+                            eventHandlers={{
+                                dragstart: () => { isDraggingRef.current = true; },
+                                dragend: (e) => {
+                                    isDraggingRef.current = false;
+                                    const newPos = e.target.getLatLng();
+                                    // Optimistic update handled by onPinMove, no duplicate pin
+                                    if (onPinMove) onPinMove(pin.id, newPos.lat, newPos.lng);
+                                }
+                            }}
                         >
+                            <Tooltip direction="top" offset={[0, -45]} opacity={0.9} className="font-bold text-xs">
+                                {(pin.description || pin.desc || 'Hunger Spot').length > 20
+                                    ? (pin.description || pin.desc || 'Hunger Spot').substring(0, 20) + '...'
+                                    : (pin.description || pin.desc || 'Hunger Spot')}
+                            </Tooltip>
+
                             <Popup className="custom-popup" closeButton={false}>
                                 <div className="min-w-[170px] p-2">
                                     <div className="flex items-center gap-2 mb-2 border-b border-gray-100 pb-2">
                                         <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold border border-gray-200 ${pin.status === 'locked' ? 'bg-gray-200 text-gray-500' : 'bg-orange-50 text-orange-600'}`}>
-                                            {pin.user ? pin.user.substring(0, 2).toUpperCase() : 'JD'}
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
+                                                <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                                            </svg>
                                         </div>
                                         <div className="flex flex-col">
                                             <span className="text-xs font-bold text-gray-900 leading-none">
@@ -401,7 +428,7 @@ export default function Map({ mode, pins, user, onPinAdd, onPinDelete, onPinEdit
                                             </span>
                                         </div>
                                     </div>
-                                    <p className="text-xs text-gray-600 mb-3 font-normal leading-relaxed">{pin.desc}</p>
+                                    <p className="text-xs text-gray-600 mb-3 font-normal leading-relaxed">{pin.description || pin.desc || 'No description'}</p>
 
                                     {/* Action Buttons */}
                                     {mode === 'spotter' && isMe ? (
@@ -411,7 +438,10 @@ export default function Map({ mode, pins, user, onPinAdd, onPinDelete, onPinEdit
                                             </div>
                                         ) : (
                                             <button
-                                                onClick={() => onPinDelete(pin.id)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation(); // Stop bubbling to map click
+                                                    onPinDelete(pin.id);
+                                                }}
                                                 className="w-full bg-red-50 text-red-600 py-1.5 rounded-md text-xs font-bold hover:bg-red-100 transition-colors flex items-center justify-center gap-1"
                                             >
                                                 Delete Pin

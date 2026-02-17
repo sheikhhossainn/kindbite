@@ -91,7 +91,16 @@ export default function AppPage() {
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pins' }, (payload) => {
                 if (!isMounted) return;
                 const newPin = payload.new;
-                setPins(prev => [newPin, ...prev]);
+
+                // Deduplicate: If pin with same ID exists, update it, do NOT add new one
+                setPins(prev => {
+                    const exists = prev.some(p => p.id === newPin.id);
+                    if (exists) return prev.map(p => p.id === newPin.id ? { ...p, ...newPin } : p);
+                    return [newPin, ...prev];
+                });
+
+                // Don't notify if I created the pin
+                if (newPin.user_id === user?.id) return;
 
                 // Play sound
                 playNotifSound();
@@ -234,17 +243,48 @@ export default function AppPage() {
 
     const handlePinDelete = async (pinId) => {
         try {
+            // Optimistic update
+            setPins(prev => prev.filter(p => p.id !== pinId));
+
             const { error } = await supabase
                 .from('pins')
                 .delete()
                 .eq('id', pinId)
                 .eq('user_id', user.id); // Only allow deletion of own pins
 
-            if (error) throw error;
-
-            setPins(pins.filter(p => p.id !== pinId));
+            if (error) {
+                // Revert if error
+                alert('Error deleting pin: ' + error.message);
+                loadPins();
+            }
         } catch (error) {
             alert('Error deleting pin: ' + error.message);
+            loadPins();
+        }
+    };
+
+    const handlePinMove = async (pinId, newLat, newLng) => {
+        try {
+            // Optimistic update
+            setPins(prev => prev.map(p => p.id === pinId ? { ...p, lat: newLat, lng: newLng } : p));
+
+            const { error } = await supabase
+                .from('pins')
+                .update({
+                    lat: newLat,
+                    lng: newLng,
+                    location: `POINT(${newLng} ${newLat})`
+                })
+                .eq('id', pinId)
+                .eq('user_id', user.id);
+
+            if (error) {
+                console.error('Error moving pin:', error);
+                loadPins(); // Revert
+            }
+        } catch (error) {
+            console.error('Error moving pin:', error);
+            loadPins();
         }
     };
 
@@ -446,6 +486,7 @@ export default function AppPage() {
                         onPinLock={handlePinLock}
                         onPinCancel={handlePinCancel}
                         onPinComplete={handlePinComplete}
+                        onPinMove={handlePinMove}
                     />
                 </div>
                 {activeTab === 'profile' && (
