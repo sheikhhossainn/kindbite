@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import NotificationBell from '../components/App/NotificationBell';
 import CameraCapture from '../components/App/CameraCapture';
 import { calculateDistance } from '../utils/location';
+import notifSoundSrc from '../assets/new_pins_near_me.mp3';
 
 export default function AppPage() {
     const [activeTab, setActiveTab] = useState('map');
@@ -18,12 +19,36 @@ export default function AppPage() {
     const [showCamera, setShowCamera] = useState(false);
     const [activePinForPhoto, setActivePinForPhoto] = useState(null);
     const [userPosition, setUserPosition] = useState(null);
-    const notifSoundRef = useRef(null);
+    const userPositionRef = useRef(null);
+    const audioBlobUrl = useRef(null);
+    const audioUnlocked = useRef(false);
 
-    // Preload notification sound
+    // Audio setup: Vite imports the mp3 as a hashed asset URL (IDM-proof)
     useEffect(() => {
-        notifSoundRef.current = new Audio('/new_pins_near_me.mp3');
-        notifSoundRef.current.volume = 0.7;
+        // Unlock audio on first user interaction (browser autoplay policy)
+        const unlock = () => {
+            audioUnlocked.current = true;
+            const a = new Audio(notifSoundSrc);
+            a.volume = 0;
+            a.play().then(() => { a.pause(); }).catch(() => { });
+            document.removeEventListener('click', unlock);
+            document.removeEventListener('touchstart', unlock);
+        };
+        document.addEventListener('click', unlock);
+        document.addEventListener('touchstart', unlock);
+        return () => {
+            document.removeEventListener('click', unlock);
+            document.removeEventListener('touchstart', unlock);
+        };
+    }, []);
+
+    // Helper: play notification sound
+    const playNotifSound = useCallback(() => {
+        try {
+            const sound = new Audio(notifSoundSrc);
+            sound.volume = 0.7;
+            sound.play().catch(() => { });
+        } catch { }
     }, []);
 
     // Request notification permission
@@ -37,7 +62,11 @@ export default function AppPage() {
     useEffect(() => {
         if (!('geolocation' in navigator)) return;
         const watchId = navigator.geolocation.watchPosition(
-            (pos) => setUserPosition([pos.coords.latitude, pos.coords.longitude]),
+            (pos) => {
+                const p = [pos.coords.latitude, pos.coords.longitude];
+                setUserPosition(p);
+                userPositionRef.current = p;
+            },
             () => { },
             { enableHighAccuracy: true, maximumAge: 10000 }
         );
@@ -55,24 +84,24 @@ export default function AppPage() {
 
     // ====== SUPABASE REALTIME — instant pin updates ======
     useEffect(() => {
+        let isMounted = true;
+        const channelName = `pins-realtime-${Date.now()}`;
         const channel = supabase
-            .channel('pins-realtime')
+            .channel(channelName)
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pins' }, (payload) => {
+                if (!isMounted) return;
                 const newPin = payload.new;
-                // Add to state instantly
                 setPins(prev => [newPin, ...prev]);
 
                 // Play sound
-                if (notifSoundRef.current) {
-                    notifSoundRef.current.currentTime = 0;
-                    notifSoundRef.current.play().catch(() => { });
-                }
+                playNotifSound();
 
                 // Browser push notification
                 if ('Notification' in window && Notification.permission === 'granted') {
                     let body = `New food spot: ${newPin.description?.slice(0, 60) || 'Someone needs help!'}`;
-                    if (userPosition) {
-                        const dist = calculateDistance(userPosition[0], userPosition[1], newPin.lat, newPin.lng);
+                    const pos = userPositionRef.current;
+                    if (pos) {
+                        const dist = calculateDistance(pos[0], pos[1], newPin.lat, newPin.lng);
                         body = `📍 ${Math.round(dist)}m away — ${newPin.description?.slice(0, 50) || 'Someone needs help!'}`;
                     }
                     new Notification('🔔 New Food Spot on KindBite!', {
@@ -85,18 +114,20 @@ export default function AppPage() {
                 }
             })
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pins' }, (payload) => {
-                // Instant status update (lock/complete/cancel)
+                if (!isMounted) return;
                 setPins(prev => prev.map(p => p.id === payload.new.id ? { ...p, ...payload.new } : p));
             })
             .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'pins' }, (payload) => {
+                if (!isMounted) return;
                 setPins(prev => prev.filter(p => p.id !== payload.old.id));
             })
             .subscribe();
 
         return () => {
+            isMounted = false;
             supabase.removeChannel(channel);
         };
-    }, [userPosition]);
+    }, []); // Empty deps — subscribe ONCE
 
     // Load pins from database
     const loadPins = async () => {

@@ -8,25 +8,27 @@ export default function NotificationBell({ user }) {
 
     useEffect(() => {
         if (!user) return;
+        let isMounted = true;
         fetchNotifications();
 
         // Real-time subscription
         const channel = supabase
-            .channel('notifications')
+            .channel(`notifications-${Date.now()}`)
             .on('postgres_changes', {
                 event: 'INSERT',
                 schema: 'public',
                 table: 'notifications',
                 filter: `user_id=eq.${user.id}`
             }, (payload) => {
+                if (!isMounted) return;
                 setNotifications(prev => [payload.new, ...prev]);
                 setUnreadCount(c => c + 1);
-                // Optional: Play sound or vibrate
                 if ('vibrate' in navigator) navigator.vibrate(200);
             })
             .subscribe();
 
         return () => {
+            isMounted = false;
             supabase.removeChannel(channel);
         };
     }, [user]);
