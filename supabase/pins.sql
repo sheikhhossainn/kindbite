@@ -246,3 +246,68 @@ create trigger on_pin_cancelled
   for each row execute function public.handle_pin_cancellation();
 
 
+-- =====================================================
+-- 7. PHOTO VERIFICATION - Proof Photos
+-- =====================================================
+
+-- Add proof photo URL to pins
+alter table public.pins
+add column if not exists proof_photo_url text;
+
+-- =====================================================
+-- 8. ADMIN PENALTIES TABLE
+-- =====================================================
+create table if not exists public.admin_penalties (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade not null,
+  pin_id uuid references public.pins(id) on delete set null,
+  reason text not null,
+  points_deducted integer not null default 5,
+  created_by uuid references auth.users(id) not null,
+  created_at timestamp with time zone default now()
+);
+
+alter table public.admin_penalties enable row level security;
+
+create policy "Users can view their own penalties"
+  on public.admin_penalties for select
+  using ( auth.uid() = user_id );
+
+create policy "Admins can insert penalties"
+  on public.admin_penalties for insert
+  with check (
+    exists (
+      select 1 from public.profiles
+      where id = auth.uid() and is_admin = true
+    )
+  );
+
+create index if not exists penalties_user_id_idx on public.admin_penalties(user_id);
+create index if not exists penalties_created_at_idx on public.admin_penalties(created_at);
+
+-- =====================================================
+-- 9. PENALTY TRIGGER - Deduct Score & Notify User
+-- =====================================================
+create or replace function public.handle_admin_penalty()
+returns trigger as $$
+begin
+  update public.profiles
+  set trust_score = greatest(trust_score - NEW.points_deducted, 0)
+  where id = NEW.user_id;
+
+  insert into public.notifications (user_id, pin_id, message, distance_meters)
+  values (
+    NEW.user_id,
+    NEW.pin_id,
+    format('⚠️ Admin Penalty: -%s Trust Score. Reason: %s', NEW.points_deducted, NEW.reason),
+    0
+  );
+
+  return NEW;
+end;
+$$ language plpgsql security definer
+set search_path = public;
+
+create trigger on_admin_penalty
+  after insert on public.admin_penalties
+  for each row execute function public.handle_admin_penalty();

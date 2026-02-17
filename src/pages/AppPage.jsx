@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Map from '../components/App/Map';
 import BottomNav from '../components/App/BottomNav';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import NotificationBell from '../components/App/NotificationBell';
+import CameraCapture from '../components/App/CameraCapture';
+import { calculateDistance } from '../utils/location';
 
 export default function AppPage() {
     const [activeTab, setActiveTab] = useState('map');
@@ -13,16 +15,88 @@ export default function AppPage() {
     const { user, signOut } = useAuth();
     const [profile, setProfile] = useState(null);
     const navigate = useNavigate();
+    const [showCamera, setShowCamera] = useState(false);
+    const [activePinForPhoto, setActivePinForPhoto] = useState(null);
+    const [userPosition, setUserPosition] = useState(null);
+    const notifSoundRef = useRef(null);
+
+    // Preload notification sound
+    useEffect(() => {
+        notifSoundRef.current = new Audio('/new_pins_near_me.mp3');
+        notifSoundRef.current.volume = 0.7;
+    }, []);
+
+    // Request notification permission
+    useEffect(() => {
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    }, []);
+
+    // Track user position for distance checks
+    useEffect(() => {
+        if (!('geolocation' in navigator)) return;
+        const watchId = navigator.geolocation.watchPosition(
+            (pos) => setUserPosition([pos.coords.latitude, pos.coords.longitude]),
+            () => { },
+            { enableHighAccuracy: true, maximumAge: 10000 }
+        );
+        return () => navigator.geolocation.clearWatch(watchId);
+    }, []);
 
     useEffect(() => {
         if (user) {
             getProfile();
             loadPins();
         } else {
-            // Load pins even for guests (view-only)
             loadPins();
         }
     }, [user]);
+
+    // ====== SUPABASE REALTIME — instant pin updates ======
+    useEffect(() => {
+        const channel = supabase
+            .channel('pins-realtime')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pins' }, (payload) => {
+                const newPin = payload.new;
+                // Add to state instantly
+                setPins(prev => [newPin, ...prev]);
+
+                // Play sound
+                if (notifSoundRef.current) {
+                    notifSoundRef.current.currentTime = 0;
+                    notifSoundRef.current.play().catch(() => { });
+                }
+
+                // Browser push notification
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    let body = `New food spot: ${newPin.description?.slice(0, 60) || 'Someone needs help!'}`;
+                    if (userPosition) {
+                        const dist = calculateDistance(userPosition[0], userPosition[1], newPin.lat, newPin.lng);
+                        body = `📍 ${Math.round(dist)}m away — ${newPin.description?.slice(0, 50) || 'Someone needs help!'}`;
+                    }
+                    new Notification('🔔 New Food Spot on KindBite!', {
+                        body,
+                        icon: '/logo.svg',
+                        badge: '/logo.svg',
+                        tag: `pin-${newPin.id}`,
+                        vibrate: [200, 100, 200]
+                    });
+                }
+            })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pins' }, (payload) => {
+                // Instant status update (lock/complete/cancel)
+                setPins(prev => prev.map(p => p.id === payload.new.id ? { ...p, ...payload.new } : p));
+            })
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'pins' }, (payload) => {
+                setPins(prev => prev.filter(p => p.id !== payload.old.id));
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [userPosition]);
 
     // Load pins from database
     const loadPins = async () => {
@@ -220,25 +294,69 @@ export default function AppPage() {
         }
     };
 
-    const handlePinComplete = async (pinId) => {
+    // Step 1: Open camera
+    const handlePinComplete = (pinId) => {
+        setActivePinForPhoto(pinId);
+        setShowCamera(true);
+    };
+
+    // Step 2: Upload photo & complete pin
+    const handlePhotoConfirm = async (blob) => {
+        setShowCamera(false);
+        const pinId = activePinForPhoto;
+        if (!pinId || !blob) return;
+
         try {
+            // Upload to Supabase Storage
+            const fileName = `${user.id}/${pinId}_${Date.now()}.jpg`;
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('proof-photos')
+                .upload(fileName, blob, {
+                    contentType: 'image/jpeg',
+                    upsert: false
+                });
+
+            if (uploadError) throw uploadError;
+
+            // Get public URL
+            const { data: urlData } = supabase.storage
+                .from('proof-photos')
+                .getPublicUrl(fileName);
+
+            const photoUrl = urlData?.publicUrl;
+
+            // Update pin: mark completed + save photo URL
             const { error } = await supabase
                 .from('pins')
-                .update({ status: 'completed' })
+                .update({
+                    status: 'completed',
+                    proof_photo_url: photoUrl
+                })
                 .eq('id', pinId)
                 .eq('locked_by', user.id);
 
             if (error) throw error;
 
-            loadPins();
-            alert("Success! +50 Trust Score awarded to both you and the spotter! 🎉");
+            await loadPins();
+            setTimeout(() => {
+                alert("Success! +50 Trust Score awarded to both you and the spotter! 🎉\n\nYour proof photo has been uploaded for review.");
+            }, 300);
         } catch (error) {
             alert('Error completing: ' + error.message);
+        } finally {
+            setActivePinForPhoto(null);
         }
     };
 
     return (
         <div className="h-screen w-full bg-gray-50 flex flex-col overflow-hidden app-mode">
+            {/* Camera Overlay */}
+            {showCamera && (
+                <CameraCapture
+                    onCapture={handlePhotoConfirm}
+                    onClose={() => { setShowCamera(false); setActivePinForPhoto(null); }}
+                />
+            )}
             {/* Top Bar: Mode Switcher + Auth Widget */}
             {activeTab === 'map' && (
                 <div className="absolute top-4 right-4 z-[500] flex items-center gap-3">

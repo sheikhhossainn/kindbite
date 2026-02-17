@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo.svg'],
+      includeAssets: ['logo.svg', 'new_pins_near_me.mp3'],
       manifest: {
         name: 'KindBite - End Hunger Together',
         short_name: 'KindBite',
@@ -32,7 +32,9 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,mp3}'],
+        skipWaiting: true,
+        clientsClaim: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
@@ -40,9 +42,10 @@ export default defineConfig({
             options: {
               cacheName: 'supabase-cache',
               expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 // 24 hours
-              }
+                maxEntries: 20,
+                maxAgeSeconds: 60 * 5 // 5 minutes — keep data fresh
+              },
+              networkTimeoutSeconds: 3
             }
           }
         ]

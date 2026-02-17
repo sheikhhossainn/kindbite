@@ -418,22 +418,32 @@ export default function Map({ mode, pins, user, onPinAdd, onPinDelete, onPinEdit
                                             </button>
                                         )
                                     ) : mode === 'donor' ? (
-                                        isLockedByMe ? (
-                                            <div className="space-y-2">
-                                                <button
-                                                    onClick={() => onPinComplete(pin.id)}
-                                                    className="w-full bg-green-500 text-white py-1.5 rounded-md text-xs font-bold hover:bg-green-600 shadow-sm animate-pulse"
-                                                >
-                                                    IM HERE - COMPLETE (+50 TS)
-                                                </button>
-                                                <button
-                                                    onClick={() => onPinCancel(pin.id)}
-                                                    className="w-full bg-gray-100 text-gray-600 py-1.5 rounded-md text-[10px] font-bold hover:bg-gray-200"
-                                                >
-                                                    Cancel Help
-                                                </button>
-                                            </div>
-                                        ) : isLockedByOther ? (
+                                        isLockedByMe ? (() => {
+                                            const distToPin = calculateDistance(position[0], position[1], pin.lat, pin.lng);
+                                            const isCloseEnough = distToPin <= 50;
+                                            return (
+                                                <div className="space-y-2">
+                                                    {isCloseEnough ? (
+                                                        <button
+                                                            onClick={() => onPinComplete(pin.id)}
+                                                            className="w-full bg-green-500 text-white py-2 rounded-md text-xs font-bold hover:bg-green-600 shadow-sm animate-pulse"
+                                                        >
+                                                            📸 I'M HERE - Take Photo (+50 TS)
+                                                        </button>
+                                                    ) : (
+                                                        <button disabled className="w-full bg-gray-200 text-gray-500 py-2 rounded-md text-xs font-bold cursor-not-allowed">
+                                                            📍 {Math.round(distToPin)}m away — Get closer (50m)
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => onPinCancel(pin.id)}
+                                                        className="w-full bg-gray-100 text-gray-600 py-1.5 rounded-md text-[10px] font-bold hover:bg-gray-200"
+                                                    >
+                                                        Cancel Help
+                                                    </button>
+                                                </div>
+                                            );
+                                        })() : isLockedByOther ? (
                                             <button disabled className="w-full bg-gray-100 text-gray-400 py-1.5 rounded-md text-xs font-bold cursor-not-allowed">
                                                 Locked by another Donor 🔒
                                             </button>

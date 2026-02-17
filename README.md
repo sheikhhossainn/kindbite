@@ -1,16 +1,77 @@
-# React + Vite
+# 🍊 KindBite
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**A hyper-local food rescue network that connects people who see hunger with people who can help — in real time.**
 
-Currently, two official plugins are available:
+KindBite is a Progressive Web App (PWA) that lets anyone "spot" someone in need and pin their location on a live map. Nearby donors get instant notifications and can navigate to the spot to deliver food — all verified with photo proof.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## How It Works
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Role | What You Do |
+|------|------------|
+| **🔍 Spotter** | See someone who looks hungry? Switch to Spotter mode, tap the map to drop a pin with a description. Nearby donors are notified instantly. |
+| **🤝 Donor** | See a pin on the map? Lock it, follow the blue route, and deliver food. Take a photo when you arrive to complete the rescue. |
+| **🛡️ Admin** | Review proof photos, manage users, and issue trust score penalties for misuse. |
 
-## Expanding the ESLint configuration
+## Key Features
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- **📍 Live Map** — Real-time pins with color-coded status (🟢 open, 🔴 yours, ⚫ locked)
+- **⚡ Instant Notifications** — Supabase Realtime + sound alerts + browser push notifications
+- **📸 Photo Verification** — GPS-gated camera with square viewfinder for food-only proof shots
+- **🛡️ Trust Score System** — Anti-fraud detection, self-claim prevention, and admin penalties
+- **🗺️ Turn-by-Turn Routing** — Donors get the shortest route to the pin location
+- **📱 PWA** — Installable on any phone or desktop, works offline
+
+## Tech Stack
+
+- **Frontend:** React + Vite
+- **Styling:** Tailwind CSS
+- **Backend:** Supabase (Auth, Database, Realtime, Storage)
+- **Maps:** Leaflet + React Leaflet + Leaflet Routing Machine
+- **Geospatial:** PostGIS
+
+## Getting Started
+
+### Prerequisites
+- Node.js 18+
+- A [Supabase](https://supabase.com) project
+
+### Setup
+
+```bash
+# Clone the repo
+git clone https://github.com/sheikhhossainn/kindbite.git
+cd kindbite
+
+# Install dependencies
+npm install
+
+# Add your Supabase credentials
+# Create a .env file with:
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Run the database setup
+# Copy supabase/pins.sql into your Supabase SQL Editor and execute
+
+# Start the dev server
+npm run dev
+```
+
+### Supabase Setup
+
+1. Run `supabase/pins.sql` in the SQL Editor (creates tables, triggers, and functions)
+2. Enable **Realtime** for `pins` and `notifications` tables (Database → Publications → `supabase_realtime`)
+3. Create a **Storage bucket** called `proof-photos` (public, 2MB max)
+4. Enable **Leaked Password Protection** (Authentication → Settings)
+
+## License
+
+MIT
+
+---
+
+<p align="center">
+  <strong>Built with ❤️ to fight hunger, one pin at a time.</strong>
+</p>
