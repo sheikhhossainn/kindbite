@@ -108,39 +108,55 @@ function LocationButton({ position }) {
 // Routing Machine Component
 function RoutingControl({ position, destination }) {
     const map = useMap();
+    const routingControlRef = useRef(null);
 
+    // Initialize Routing Control ONCE
     useEffect(() => {
-        if (!position || !destination) return;
-
         if (!L.Routing) {
             console.error("Leaflet Routing Machine not loaded");
             return;
         }
 
-        const routingControl = L.Routing.control({
-            waypoints: [
-                L.latLng(position[0], position[1]),
-                L.latLng(destination.lat, destination.lng)
-            ],
-            routeWhileDragging: false,
-            showAlternatives: false,
-            addWaypoints: false,
-            fitSelectedRoutes: true,
-            show: false, // Hide the instructions panel
-            lineOptions: {
-                styles: [{ color: '#3b82f6', weight: 5, opacity: 0.7 }]
-            },
-            createMarker: function () { return null; } // Don't create markers for start/end
-        }).addTo(map);
+        if (!routingControlRef.current) {
+            routingControlRef.current = L.Routing.control({
+                waypoints: [
+                    L.latLng(position[0], position[1]),
+                    L.latLng(destination.lat, destination.lng)
+                ],
+                routeWhileDragging: false, // Better performance
+                showAlternatives: false,
+                addWaypoints: false,
+                fitSelectedRoutes: false, // Don't zoom automatically on every update
+                show: false, // Hide instruction panel
+                lineOptions: {
+                    styles: [{ color: '#3b82f6', weight: 5, opacity: 0.7 }]
+                },
+                createMarker: function () { return null; }
+            }).addTo(map);
+        }
 
         return () => {
-            try {
-                map.removeControl(routingControl);
-            } catch (e) {
-                console.warn("Error removing routing control", e);
+            if (routingControlRef.current) {
+                try {
+                    map.removeControl(routingControlRef.current);
+                    routingControlRef.current = null;
+                } catch (e) {
+                    console.warn("Error removing routing control", e);
+                }
             }
         };
-    }, [map, position, destination]);
+    }, [map]); // Only run on mount/unmount
+
+    // Update waypoints when position changes
+    useEffect(() => {
+        if (routingControlRef.current && position && destination) {
+            const newWaypoints = [
+                L.latLng(position[0], position[1]),
+                L.latLng(destination.lat, destination.lng)
+            ];
+            routingControlRef.current.setWaypoints(newWaypoints);
+        }
+    }, [position, destination]);
 
     return null;
 }
