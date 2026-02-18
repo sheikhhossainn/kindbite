@@ -147,15 +147,38 @@ function RoutingControl({ position, destination }) {
         };
     }, [map]); // Only run on mount/unmount
 
-    // Update waypoints when position changes
+    const lastUpdateRef = useRef(0);
+    const timeoutRef = useRef(null);
+
+    // Update waypoints when position changes (Throttled)
     useEffect(() => {
-        if (routingControlRef.current && position && destination) {
-            const newWaypoints = [
-                L.latLng(position[0], position[1]),
-                L.latLng(destination.lat, destination.lng)
-            ];
-            routingControlRef.current.setWaypoints(newWaypoints);
+        if (!routingControlRef.current || !position || !destination) return;
+
+        const performUpdate = () => {
+            if (routingControlRef.current) {
+                routingControlRef.current.setWaypoints([
+                    L.latLng(position[0], position[1]),
+                    L.latLng(destination.lat, destination.lng)
+                ]);
+                lastUpdateRef.current = Date.now();
+            }
+        };
+
+        const now = Date.now();
+        const timeSinceLast = now - lastUpdateRef.current;
+        const UPDATE_INTERVAL = 3000; // 3 seconds throttle to prevent rate limiting
+
+        if (timeSinceLast >= UPDATE_INTERVAL) {
+            performUpdate();
+        } else {
+            // Schedule the update for the end of the interval
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+            timeoutRef.current = setTimeout(performUpdate, UPDATE_INTERVAL - timeSinceLast);
         }
+
+        return () => {
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        };
     }, [position, destination]);
 
     return null;
