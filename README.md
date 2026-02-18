@@ -1,4 +1,4 @@
-# 🍊 KindBite
+# <img src="./public/logo.svg" width="45" style="vertical-align: bottom;" /> KindBite
 
 **A hyper-local food rescue network that connects people who see hunger with people who can help — in real time.**
 
